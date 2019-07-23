@@ -113,6 +113,13 @@ def directory_watchdog():
             time.sleep(config.directory_watchdog_sleep_timer)
             continue
 
+        # Mount point is not valid anymore? Report it.
+        if config.directory_that_needs_to_be_a_mount_point is not None:
+            if not os.path.ismount(config.directory_that_needs_to_be_a_mount_point):
+                send_message("Output directory is not mounted anymore ({}).".format(config.directory_that_needs_to_be_a_mount_point))
+                time.sleep(config.directory_watchdog_sleep_timer_on_error)
+                continue
+
         filename_to_transfer = files_to_transfer[-1]
         full_filename_to_transfer = os.path.join(config.input_directory, filename_to_transfer)
 
