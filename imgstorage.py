@@ -59,8 +59,8 @@ def recursive_listdir(path):
 def generate_checksum_of_file(full_filepath):
     os.system('sha256sum "{}" >> "{}"'.format(full_filepath, config.checksum_file))
 
-def transfer_file(full_filepath, filename):
-    sys.stdout.write("\rSending file {}         ".format(filename))
+def transfer_file(full_filepath):
+    sys.stdout.write("\rSending file {}         ".format(full_filepath))
     p = subprocess.Popen(["rsync", "-a", "--ignore-times", "--checksum", "--remove-source-files",
                         full_filepath,
                         config.output_directory + "/"],
@@ -130,15 +130,14 @@ def directory_watchdog():
                 continue
 
         filename_to_transfer = files_to_transfer[-1]
-        full_filename_to_transfer = os.path.join(config.input_directory, filename_to_transfer)
 
         if filename_to_transfer not in already_checksummed_files:
-            generate_checksum_of_file(full_filename_to_transfer)
+            generate_checksum_of_file(filename_to_transfer)
             already_checksummed_files.add(filename_to_transfer)
 
         error = None
         try:
-            error = transfer_file(full_filename_to_transfer, filename_to_transfer)
+            error = transfer_file(filename_to_transfer)
         except Exception as e:
             error = str(e)
         
