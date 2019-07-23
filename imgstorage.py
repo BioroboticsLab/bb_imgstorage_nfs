@@ -63,7 +63,7 @@ def transfer_file(full_filepath, filename):
     sys.stdout.write("\rSending file {}         ".format(filename))
     p = subprocess.Popen(["rsync", "-a", "--ignore-times", "--checksum", "--remove-source-files",
                         full_filepath,
-                        os.path.join(config.output_directory, filename)],
+                        config.output_directory + "/"],
                     stderr=subprocess.PIPE)
     
     _, stderr_data = p.communicate()
