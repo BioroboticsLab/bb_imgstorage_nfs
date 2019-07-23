@@ -52,7 +52,7 @@ def generate_checksum_of_file(full_filepath):
 
 def transfer_file(full_filepath, filename):
     sys.stdout.write("\rSending file {}         ".format(filename))
-    p = subprocess.Popen(["rsync", "-a", "--ignore-times", "--checksum",
+    p = subprocess.Popen(["rsync", "-a", "--ignore-times", "--checksum", "--remove-source-files",
                         full_filepath,
                         os.path.join(config.output_directory, filename)],
                     stderr=subprocess.PIPE)
@@ -65,10 +65,6 @@ def transfer_file(full_filepath, filename):
 
 def increment_file_counter():
     os.system('expr `cat "{}" 2>/dev/null` + 1 >"{}"'.format(config.stats_file, config.stats_file))
-
-def remove_file(full_filepath, filename):
-    sys.stdout.write("\rRemoving file {}         ".format(filename))
-    os.unlink(full_filepath)
 
 def directory_watchdog():
 
@@ -87,6 +83,7 @@ def directory_watchdog():
             time.sleep(config.directory_watchdog_sleep_timer_on_error)
             continue
         
+        # No files to transfer? If that happens for a longer time, report it.
         if len(files_to_transfer) == 0:
             
             # Print error message to slack?
@@ -134,13 +131,6 @@ def directory_watchdog():
             time.sleep(config.directory_watchdog_sleep_timer_on_error)
             continue
         
-        try:
-            remove_file(full_filename_to_transfer, filename_to_transfer)
-        except Exception as e:
-            send_message("Watchdog: unlink encountered exception: {}".format(str(e)))
-            time.sleep(config.directory_watchdog_sleep_timer_on_error)
-            continue
-
         increment_file_counter()
         last_transferred_file_time = timeit.default_timer()
 
