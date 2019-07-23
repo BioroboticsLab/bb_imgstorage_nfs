@@ -9,5 +9,5 @@ input_directory = "/mnt/local_storage/beesbook_2019/hd_recording/out"
 output_directory = "/mnt/zedat/beesbook/2019/hd_recording"
 directory_that_needs_to_be_a_mount_point = "/mnt/zedat"
 
-stats_file = "/home/david/Downloads/imgstorage_stats"
-checksum_file = "/home/david/Downloads/imgstorage.sha256.txt"
+stats_file = "/mnt/local_storage/beesbook_2019/hd_recording/imgstorage_stats"
+checksum_file = "/mnt/local_storage/beesbook_2019/hd_recording/imgstorage.sha256.txt"

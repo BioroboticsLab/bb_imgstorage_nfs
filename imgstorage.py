@@ -1,5 +1,10 @@
 
-import config
+try:
+    import user_config as config
+except:
+    print("Could not import user-defined config (user_config.py). Falling back to default config.")
+    import default_config as config
+
 import datetime
 import subprocess
 import os, time
