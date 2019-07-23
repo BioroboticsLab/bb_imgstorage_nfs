@@ -47,6 +47,10 @@ def message_station():
 
         time.sleep(5)
 
+def recursive_listdir(path):
+    # See https://stackoverflow.com/questions/19309667/recursive-os-listdir
+    return [os.path.join(dp, f) for dp, dn, fn in os.walk(path) for f in fn]
+
 def generate_checksum_of_file(full_filepath):
     os.system('sha256sum "{}" >> "{}"'.format(full_filepath, config.checksum_file))
 
@@ -76,7 +80,7 @@ def directory_watchdog():
         
         files_to_transfer = []
         try:
-            files_to_transfer = os.listdir(config.input_directory)
+            files_to_transfer = recursive_listdir(config.input_directory)
             files_to_transfer = list(sorted(files_to_transfer))
         except Exception as e:
             send_message("Watchdog: ls encountered exception: {}".format(str(e)))
