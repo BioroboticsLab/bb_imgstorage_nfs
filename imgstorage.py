@@ -68,7 +68,7 @@ def transfer_file(full_filepath):
     
     _, stderr_data = p.communicate()
 
-    if p.returncode == 0:
+    if p.returncode == 0 and not stderr_data:
         return None
     return stderr_data.decode()
 
