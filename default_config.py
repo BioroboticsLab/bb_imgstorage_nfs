@@ -1,6 +1,6 @@
-
-slack_api_token = "FILL IN API TOKEN PLZ"
-slack_channel = "#bb_notification"
+computer_name = "YOUR COMPUTER NAME"  # this will be added to messages
+telegram_bot_token = "FILL IN API TOKEN"
+telegram_chat_id = "FILL IN TELEGRAM CHAT ID"
 
 directory_watchdog_sleep_timer = 1.0 # in seconds.
 directory_watchdog_sleep_timer_on_error = 10.0 # in seconds.

@@ -8,56 +8,26 @@ except:
 import datetime
 import subprocess
 import os, time
-import queue
-from queue import Queue
 import threading
 import timeit
 import sys
+import requests
 
-global_message_queue = Queue()
 
 def send_message(message):
-    global global_message_queue
-    try:
-        global_message_queue.put_nowait(message)
-        print("Sending: {}".format(message))
-    except queue.Full:
-        print("Queue full. Message: {}".format(message))
-
-def message_station():
-    global global_message_queue
-    
-    if config.slack_api_token is None:
-        print("Slack deactivated.")
-        return
-
-    import slack
-    slack_client = slack.WebClient(token=config.slack_api_token)
-
-    while True:
-        message = global_message_queue.get()
-
-        try:
-            response = slack_client.chat_postMessage(
-                            channel=config.slack_channel,
-                            text=message)
-        except Exception as e:
-            print("Message station encountered exception: {}".format(str(e)))
-            print("Message was: {}".format(message))
-            time.sleep(10)
-            continue
-
-        if not response["ok"]:
-            print("Slack message not sent: {}".format(message))
-
-        time.sleep(5)
+    send_url = f'https://api.telegram.org/bot{config.telegram_bot_token}/sendMessage'
+    data = {'chat_id': config.telegram_chat_id, 'text': config.computer_name+':  '+message}    
+    response = requests.post(send_url, data=data).json()
+    if not(response['ok']):
+        print("Message not sent")
+    return response['ok']
 
 def recursive_listdir(path):
     # See https://stackoverflow.com/questions/19309667/recursive-os-listdir
     return [os.path.join(dp, f) for dp, dn, fn in os.walk(path) for f in fn]
 
 def generate_checksum_of_file(full_filepath):
-    os.system('sha256sum "{}" >> "{}"'.format(full_filepath, config.checksum_file))
+    os.system('shasum -a 256 "{}" >> "{}"'.format(full_filepath, config.checksum_file))
 
 def transfer_file(full_filepath):
     sys.stdout.write("\rSending file {}         ".format(full_filepath))
@@ -73,7 +43,24 @@ def transfer_file(full_filepath):
     return stderr_data.decode()
 
 def increment_file_counter():
-    os.system('expr `cat "{}" 2>/dev/null` + 1 >"{}"'.format(config.stats_file, config.stats_file))
+    try:
+        # Attempt to read the current value from the file.
+        with open(config.stats_file, 'r') as file:
+            current_value = int(file.read().strip() or 0)
+    except ValueError:
+        # If the file does not contain an integer, start from 0.
+        current_value = 0
+    except FileNotFoundError:
+        # If the file does not exist, start from 0.
+        current_value = 0
+    new_value = current_value + 1
+    
+    # Write the new value back to the file.
+    with open(config.stats_file, 'w') as file:
+        file.write(str(new_value))
+
+    
+    # os.system('expr `cat "{}" 2>/dev/null` + 1 >"{}"'.format(config.stats_file, config.stats_file))
 
 def directory_watchdog():
 
@@ -153,14 +140,9 @@ def directory_watchdog():
 
 if __name__ == "__main__":
     print("Starting watchdog..")
-    message_thread = None
-    try:
-        message_thread = threading.Thread(target=message_station)
-        message_thread.start()
-    except:
-        message_thread = None
-
+    if send_message(config.computer_name+":  Started bb_imgstorage_nfs"):
+        print("Telegram message bot connected")
+    else:
+        print("ERROR: check message bot settings")
+    
     directory_watchdog()
-
-    if message_thread is not None:
-        message_thread.join()
