@@ -31,9 +31,19 @@ def generate_checksum_of_file(full_filepath):
 
 def transfer_file(full_filepath):
     sys.stdout.write("\rSending file {}         ".format(full_filepath))
+    # Format today's date as YYYYMMDD
+    today_str = datetime.datetime.now().strftime("%Y%m%d")
+    relative_path = os.path.relpath(full_filepath, start=config.input_directory)
+
+    # Create path, preserving subdirectory structure for each date
+    output_subdir = os.path.join(config.output_directory, today_str, os.path.dirname(relative_path))
+
+    # Check if the subdirectory exists, and create it if it does not
+    if not os.path.exists(output_subdir):
+        os.makedirs(output_subdir)
+    
     p = subprocess.Popen(["rsync", "-a", "--ignore-times", "--checksum", "--remove-source-files",
-                        full_filepath,
-                        config.output_directory + "/"],
+                        full_filepath, output_subdir + "/"],
                     stderr=subprocess.PIPE)
     
     _, stderr_data = p.communicate()
