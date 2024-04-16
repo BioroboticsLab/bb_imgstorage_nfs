@@ -39,12 +39,29 @@ def transfer_file(full_filepath):
     output_subdir = os.path.join(config.output_directory, today_str, os.path.dirname(relative_path))
 
     # Check if the subdirectory exists, and create it if it does not
-    if not os.path.exists(output_subdir):
-        os.makedirs(output_subdir)
-    
-    p = subprocess.Popen(["rsync", "-a", "--ignore-times", "--checksum", "--remove-source-files",
-                        full_filepath, output_subdir + "/"],
-                    stderr=subprocess.PIPE)
+
+    if config.use_ssh_for_transfer:
+        command = ["ssh", config.output_directory.split(':')[0], "mkdir -p", output_subdir.split(':')[1]]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Wait for the command to complete
+        stdout, stderr = process.communicate()
+        # Check if successful
+        if process.returncode == 0:
+            print("Directory created successfully.")
+        else:
+            print("Error occurred:", stderr.decode())        
+            return stderr.decode()
+    else:
+        if not os.path.exists(output_subdir):
+            os.makedirs(output_subdir)
+        
+    command = ["rsync", "-a", "--ignore-times", "--checksum", "--remove-source-files"]
+    # Add SSH option only if required
+    if config.use_ssh_for_transfer:
+        command.append("-e")
+        command.append("ssh")
+    command.extend([full_filepath, output_subdir + "/"])
+    p = subprocess.Popen(command,stderr=subprocess.PIPE)
     
     _, stderr_data = p.communicate()
 
@@ -150,7 +167,7 @@ def directory_watchdog():
 
 if __name__ == "__main__":
     print("Starting watchdog..")
-    if send_message(config.computer_name+":  Started bb_imgstorage_nfs"):
+    if send_message("Started bb_imgstorage_nfs"):
         print("Telegram message bot connected")
     else:
         print("ERROR: check message bot settings")
