@@ -107,16 +107,16 @@ def directory_watchdog():
         # No files to transfer? If that happens for a longer time, report it.
         if len(files_to_transfer) == 0:
             
-            # Print error message to slack?
             current_time = timeit.default_timer()
+            seconds_max_to_notify = config.directory_watchdog_sleep_timer*150
             if last_transferred_file_time is not None:
                 should_print = True
                 if last_no_file_found_message_time is not None:
                     last_print_time_delta_seconds = current_time - last_no_file_found_message_time
-                    should_print = last_print_time_delta_seconds > 60.0 * 2.5
+                    should_print = last_print_time_delta_seconds > seconds_max_to_notify
 
                 last_transferred_file_time_delta_seconds = current_time - last_transferred_file_time
-                if should_print and last_transferred_file_time_delta_seconds > 60.0 * 2.5:
+                if should_print and last_transferred_file_time_delta_seconds > seconds_max_to_notify:
                     delta = datetime.timedelta(seconds=last_transferred_file_time_delta_seconds)
 
                     n_total_files = 0
