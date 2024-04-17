@@ -38,12 +38,11 @@ def transfer_file(full_filepath):
     output_subdir = os.path.join(config.output_directory, today_str, os.path.dirname(relative_path))
 
     # Check if the subdirectory exists, and create it if it does not
-
     if config.use_ssh_for_transfer:
         command = ["ssh", config.output_directory.split(':')[0], "mkdir -p", output_subdir.split(':')[1]]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         # Wait for the command to complete
-        stdout, stderr = process.communicate()
+        _, stderr = process.communicate()
         # Check if successful
         if process.returncode == 0:
             print("Directory created successfully.")
