@@ -5,12 +5,13 @@ except:
     print("Could not import user-defined config (user_config.py). Falling back to default config.")
     import default_config as config
 
-import datetime
 import subprocess
 import os, time
 import timeit
 import sys
 import requests
+from datetime import datetime, timezone
+import re
 
 
 def send_message(message):
@@ -28,14 +29,53 @@ def recursive_listdir(path):
 def generate_checksum_of_file(full_filepath):
     os.system('shasum -a 256 "{}" >> "{}"'.format(full_filepath, config.checksum_file))
 
+def parse_date_from_filename(filename):
+    patterns = [
+        '%Y%m%dT%H%M%S.%fZ',
+        '%Y-%m-%d-%H-%M-%S'
+    ]
+    
+    # Define regex to identify possible date patterns
+    regex_patterns = [
+        r'(\d{8}T\d{6}\.\d{1,6})',  # Matches YYYYMMDDTHHMMSS.mmmmmm
+        r'(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})'  # Matches YYYY-MM-DD-HH-MM-SS
+    ]
+    
+    for pattern, regex in zip(patterns, regex_patterns):
+        match = re.search(regex, filename)
+        if match:
+            date_str = match.group(1)
+            try:
+                # Adjust date string to fit the pattern
+                if pattern == '%Y%m%dT%H%M%S.%fZ':
+                    date_str += 'Z'  # Append 'Z' for UTC
+                date_obj = datetime.strptime(date_str, pattern)
+                # Convert from UTC to local time
+                date_obj = date_obj.replace(tzinfo=timezone.utc).astimezone(tz=None)
+                return date_obj
+            except ValueError:
+                continue
+    
+    # If no pattern matches, use the current day from the current timestamp
+    print(f"Could not parse date from filename {filename}. Using current date.")
+    return datetime.now()
+
 def transfer_file(full_filepath):
     sys.stdout.write("\rSending file {}         ".format(full_filepath))
-    # Format today's date as YYYYMMDD
-    today_str = datetime.datetime.now().strftime("%Y%m%d")
+
+    # Parse the date from the filename
+    filename = os.path.basename(full_filepath)
+    date_obj = parse_date_from_filename(filename)
+    if not date_obj:
+        print(f"Skipping file {filename} due to parsing error.")
+        return "Parsing error"
+
+    # Format the date as YYYYMMDD in local time
+    date_str = date_obj.strftime("%Y%m%d")
     relative_path = os.path.relpath(full_filepath, start=config.input_directory)
 
     # Create path, preserving subdirectory structure for each date
-    output_subdir = os.path.join(config.output_directory, today_str, os.path.dirname(relative_path))
+    output_subdir = os.path.join(config.output_directory, date_str, os.path.dirname(relative_path))
 
     # Check if the subdirectory exists, and create it if it does not
     if config.use_ssh_for_transfer:
@@ -161,7 +201,7 @@ def directory_watchdog():
         increment_file_counter()
         last_transferred_file_time = timeit.default_timer()
 
-        sys.stdout.write("\rFile transferred at {}         ".format(datetime.datetime.now()))
+        sys.stdout.write("\rFile transferred at {}         ".format(datetime.now()))
 
 if __name__ == "__main__":
     print("Starting watchdog..")
