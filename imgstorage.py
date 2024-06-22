@@ -10,7 +10,7 @@ import os, time
 import timeit
 import sys
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import re
 
 
@@ -157,7 +157,7 @@ def directory_watchdog():
 
                 last_transferred_file_time_delta_seconds = current_time - last_transferred_file_time
                 if should_print and last_transferred_file_time_delta_seconds > seconds_max_to_notify:
-                    delta = datetime.timedelta(seconds=last_transferred_file_time_delta_seconds)
+                    delta = timedelta(seconds=last_transferred_file_time_delta_seconds)
 
                     n_total_files = 0
                     try:
