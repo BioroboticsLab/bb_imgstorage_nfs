@@ -22,7 +22,7 @@ def send_message(message):
         if not(response['ok']):
             print("Message not sent")
         return response['ok']
-    catch:
+    except:
         return False
 
 def recursive_listdir(path):
