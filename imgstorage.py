@@ -17,10 +17,13 @@ import re
 def send_message(message):
     send_url = f'https://api.telegram.org/bot{config.telegram_bot_token}/sendMessage'
     data = {'chat_id': config.telegram_chat_id, 'text': config.computer_name+':  '+message}    
-    response = requests.post(send_url, data=data).json()
-    if not(response['ok']):
-        print("Message not sent")
-    return response['ok']
+    try:
+        response = requests.post(send_url, data=data).json()
+        if not(response['ok']):
+            print("Message not sent")
+        return response['ok']
+    catch:
+        return False
 
 def recursive_listdir(path):
     # See https://stackoverflow.com/questions/19309667/recursive-os-listdir
