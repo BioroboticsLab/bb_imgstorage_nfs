@@ -16,3 +16,13 @@ Once you’ve configured your user_config.py file, run the script with:
 ```bash
 python imgstorage.py
 ```
+
+# Typical usage and workflow
+A typical workflow involves first starting the video recording software, such as [bb_imgacquisition](https://github.com/BioroboticsLab/bb_imgacquisition) or [bb_raspicam](https://github.com/BioroboticsLab/bb_raspicam), which will save the recorded videos to the operating system's drive (e.g., an SSD).
+
+While recording is running, use `bb_imgstorage_nfs` to transfer the saved files to the desired storage location. Common use cases include:
+
+1. **Transfer to Network-Attached Storage (NAS):**  
+   E.g., a network-attached storage device that is mounted locally via NFS or CIFS.
+2. **Transfer to Another Computer or Location on the Network Using SSH:**  
+3. **Transfer to a Locally-Attached Hard Drive:**  
