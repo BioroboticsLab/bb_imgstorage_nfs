@@ -5,66 +5,104 @@ except:
     print("Could not import user-defined config (user_config.py). Falling back to default config.")
     import default_config as config
 
-import datetime
 import subprocess
 import os, time
-import queue
-from queue import Queue
-import threading
 import timeit
 import sys
+import requests
+from datetime import datetime, timezone, timedelta
+import re
 
-global_message_queue = Queue()
 
 def send_message(message):
-    global global_message_queue
+    send_url = f'https://api.telegram.org/bot{config.telegram_bot_token}/sendMessage'
+    data = {'chat_id': config.telegram_chat_id, 'text': config.computer_name+':  '+message}    
     try:
-        global_message_queue.put_nowait(message)
-        print("Sending: {}".format(message))
-    except queue.Full:
-        print("Queue full. Message: {}".format(message))
-
-def message_station():
-    global global_message_queue
-    
-    if config.slack_api_token is None:
-        print("Slack deactivated.")
-        return
-
-    import slack
-    slack_client = slack.WebClient(token=config.slack_api_token)
-
-    while True:
-        message = global_message_queue.get()
-
-        try:
-            response = slack_client.chat_postMessage(
-                            channel=config.slack_channel,
-                            text=message)
-        except Exception as e:
-            print("Message station encountered exception: {}".format(str(e)))
-            print("Message was: {}".format(message))
-            time.sleep(10)
-            continue
-
-        if not response["ok"]:
-            print("Slack message not sent: {}".format(message))
-
-        time.sleep(5)
+        response = requests.post(send_url, data=data).json()
+        if not(response['ok']):
+            print("Message not sent")
+        return response['ok']
+    except:
+        return False
 
 def recursive_listdir(path):
     # See https://stackoverflow.com/questions/19309667/recursive-os-listdir
     return [os.path.join(dp, f) for dp, dn, fn in os.walk(path) for f in fn]
 
 def generate_checksum_of_file(full_filepath):
-    os.system('sha256sum "{}" >> "{}"'.format(full_filepath, config.checksum_file))
+    os.system('shasum -a 256 "{}" >> "{}"'.format(full_filepath, config.checksum_file))
+
+def parse_date_from_filename(filename):
+    patterns = [
+        '%Y%m%dT%H%M%S.%fZ',
+        '%Y-%m-%d-%H-%M-%S'
+    ]
+    
+    # Define regex to identify possible date patterns
+    regex_patterns = [
+        r'(\d{8}T\d{6}\.\d{1,6})',  # Matches YYYYMMDDTHHMMSS.mmmmmm
+        r'(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})'  # Matches YYYY-MM-DD-HH-MM-SS
+    ]
+    
+    for pattern, regex in zip(patterns, regex_patterns):
+        match = re.search(regex, filename)
+        if match:
+            date_str = match.group(1)
+            try:
+                # Adjust date string to fit the pattern
+                if pattern == '%Y%m%dT%H%M%S.%fZ':
+                    date_str += 'Z'  # Append 'Z' for UTC
+                date_obj = datetime.strptime(date_str, pattern)
+                # Convert from UTC to local time
+                date_obj = date_obj.replace(tzinfo=timezone.utc).astimezone(tz=None)
+                return date_obj
+            except ValueError:
+                continue
+    
+    # If no pattern matches, use the current day from the current timestamp
+    print(f"Could not parse date from filename {filename}. Using current date.")
+    return datetime.now()
 
 def transfer_file(full_filepath):
     sys.stdout.write("\rSending file {}         ".format(full_filepath))
-    p = subprocess.Popen(["rsync", "-a", "--ignore-times", "--checksum", "--remove-source-files",
-                        full_filepath,
-                        config.output_directory + "/"],
-                    stderr=subprocess.PIPE)
+
+    # Parse the date from the filename
+    filename = os.path.basename(full_filepath)
+    date_obj = parse_date_from_filename(filename)
+    if not date_obj:
+        print(f"Skipping file {filename} due to parsing error.")
+        return "Parsing error"
+
+    # Format the date as YYYYMMDD in local time
+    date_str = date_obj.strftime("%Y%m%d")
+    relative_path = os.path.relpath(full_filepath, start=config.input_directory)
+
+    # Create path, preserving subdirectory structure for each date
+    output_subdir = os.path.join(config.output_directory, date_str, os.path.dirname(relative_path))
+
+    # Check if the subdirectory exists, and create it if it does not
+    if config.use_ssh_for_transfer:
+        command = ["ssh", config.output_directory.split(':')[0], "mkdir -p", output_subdir.split(':')[1]]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Wait for the command to complete
+        _, stderr = process.communicate()
+        # Check if successful
+        if process.returncode == 0:
+            print("Directory created successfully.")
+        else:
+            print("Error occurred:", stderr.decode())        
+            return stderr.decode()
+    else:
+        if not os.path.exists(output_subdir):
+            os.makedirs(output_subdir)
+        
+    command = ["rsync", "-a", "--ignore-times", "--checksum", "--remove-source-files"]
+    # Add SSH option only if required
+    if config.use_ssh_for_transfer:
+        command.append("-e")
+        command.append("ssh")
+    command.extend([full_filepath, output_subdir + "/"])
+    p = subprocess.Popen(command,stderr=subprocess.PIPE)
     
     _, stderr_data = p.communicate()
 
@@ -73,7 +111,24 @@ def transfer_file(full_filepath):
     return stderr_data.decode()
 
 def increment_file_counter():
-    os.system('expr `cat "{}" 2>/dev/null` + 1 >"{}"'.format(config.stats_file, config.stats_file))
+    try:
+        # Attempt to read the current value from the file.
+        with open(config.stats_file, 'r') as file:
+            current_value = int(file.read().strip() or 0)
+    except ValueError:
+        # If the file does not contain an integer, start from 0.
+        current_value = 0
+    except FileNotFoundError:
+        # If the file does not exist, start from 0.
+        current_value = 0
+    new_value = current_value + 1
+    
+    # Write the new value back to the file.
+    with open(config.stats_file, 'w') as file:
+        file.write(str(new_value))
+
+    
+    # os.system('expr `cat "{}" 2>/dev/null` + 1 >"{}"'.format(config.stats_file, config.stats_file))
 
 def directory_watchdog():
 
@@ -95,17 +150,17 @@ def directory_watchdog():
         # No files to transfer? If that happens for a longer time, report it.
         if len(files_to_transfer) == 0:
             
-            # Print error message to slack?
             current_time = timeit.default_timer()
+            seconds_max_to_notify = config.directory_watchdog_sleep_timer*150
             if last_transferred_file_time is not None:
                 should_print = True
                 if last_no_file_found_message_time is not None:
                     last_print_time_delta_seconds = current_time - last_no_file_found_message_time
-                    should_print = last_print_time_delta_seconds > 60.0 * 2.5
+                    should_print = last_print_time_delta_seconds > seconds_max_to_notify
 
                 last_transferred_file_time_delta_seconds = current_time - last_transferred_file_time
-                if should_print and last_transferred_file_time_delta_seconds > 60.0 * 2.5:
-                    delta = datetime.timedelta(seconds=last_transferred_file_time_delta_seconds)
+                if should_print and last_transferred_file_time_delta_seconds > seconds_max_to_notify:
+                    delta = timedelta(seconds=last_transferred_file_time_delta_seconds)
 
                     n_total_files = 0
                     try:
@@ -149,18 +204,13 @@ def directory_watchdog():
         increment_file_counter()
         last_transferred_file_time = timeit.default_timer()
 
-        sys.stdout.write("\rFile transferred at {}         ".format(datetime.datetime.now()))
+        sys.stdout.write("\rFile transferred at {}         ".format(datetime.now()))
 
 if __name__ == "__main__":
     print("Starting watchdog..")
-    message_thread = None
-    try:
-        message_thread = threading.Thread(target=message_station)
-        message_thread.start()
-    except:
-        message_thread = None
-
+    if send_message("Started bb_imgstorage_nfs"):
+        print("Telegram message bot connected")
+    else:
+        print("ERROR: check message bot settings")
+    
     directory_watchdog()
-
-    if message_thread is not None:
-        message_thread.join()
