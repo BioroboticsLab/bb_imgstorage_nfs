@@ -35,23 +35,25 @@ def generate_checksum_of_file(full_filepath):
 def parse_date_from_filename(filename):
     patterns = [
         '%Y%m%dT%H%M%S.%fZ',
-        '%Y-%m-%d-%H-%M-%S'
+        '%Y-%m-%d-%H-%M-%S',
+        '%Y-%m-%dT%H_%M_%S.%fZ'
     ]
-    
+
     # Define regex to identify possible date patterns
     regex_patterns = [
         r'(\d{8}T\d{6}\.\d{1,6})',  # Matches YYYYMMDDTHHMMSS.mmmmmm
-        r'(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})'  # Matches YYYY-MM-DD-HH-MM-SS
+        r'(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})',  # Matches YYYY-MM-DD-HH-MM-SS
+        r'(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}(?:\.\d{1,6})?Z?)'  # Matches new audio recorder format
     ]
-    
+
     for pattern, regex in zip(patterns, regex_patterns):
         match = re.search(regex, filename)
         if match:
             date_str = match.group(1)
             try:
-                # Adjust date string to fit the pattern
+                # Adjust date string if needed (for example, force a trailing 'Z' for UTC)
                 if pattern == '%Y%m%dT%H%M%S.%fZ':
-                    date_str += 'Z'  # Append 'Z' for UTC
+                    date_str += 'Z'
                 date_obj = datetime.strptime(date_str, pattern)
                 # Convert from UTC to local time
                 date_obj = date_obj.replace(tzinfo=timezone.utc).astimezone(tz=None)
