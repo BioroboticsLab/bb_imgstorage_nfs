@@ -1,10 +1,3 @@
-
-try:
-    import user_config as config
-except:
-    print("Could not import user-defined config (user_config.py). Falling back to default config.")
-    import default_config as config
-
 import subprocess
 import os, time
 import timeit
@@ -13,7 +6,33 @@ import requests
 from datetime import datetime, timezone, timedelta
 import re
 
+#
+# ─── CONFIG LOADING ─────────────────────────────────────────────────────────────
+#
+# If a filename is given on the command line, use that as the config module.
+# Otherwise try user_config.py, then default_config.py.
+#
+if len(sys.argv) > 1:
+    # First command-line argument is the config file (e.g. "txfr_exitcamA.py")
+    cfg_path = sys.argv[1]
+    module_name = os.path.splitext(os.path.basename(cfg_path))[0]
+    try:
+        config = __import__(module_name)
+        print(f"Using config from '{cfg_path}' -> module '{module_name}'")
+    except ImportError as e:
+        print(f"ERROR: Could not import specified config '{cfg_path}': {e}")
+        sys.exit(1)
+else:
+    try:
+        import user_config as config
+        print("Using user_config.py")
+    except ImportError:
+        print("Could not import user_config.py. Falling back to default_config.py")
+        import default_config as config
 
+#
+# ─── FUNCTIONS ──────────────────────────────────────────────────────────────────
+#
 def send_message(message):
     send_url = f'https://api.telegram.org/bot{config.telegram_bot_token}/sendMessage'
     data = {'chat_id': config.telegram_chat_id, 'text': config.computer_name+':  '+message}    
