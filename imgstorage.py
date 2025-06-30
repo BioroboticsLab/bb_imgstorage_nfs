@@ -34,14 +34,21 @@ else:
 # ─── FUNCTIONS ──────────────────────────────────────────────────────────────────
 #
 def send_message(message):
+    # Skip messaging if no Telegram credentials are set
+    if not config.telegram_bot_token or not config.telegram_chat_id:
+        return False
+        
     send_url = f'https://api.telegram.org/bot{config.telegram_bot_token}/sendMessage'
-    data = {'chat_id': config.telegram_chat_id, 'text': config.computer_name+':  '+message}    
+    data = {
+        'chat_id': config.telegram_chat_id,
+        'text': f"{config.computer_name}: {message}"
+    }
     try:
         response = requests.post(send_url, data=data).json()
-        if not(response['ok']):
+        if not response.get('ok', False):
             print("Message not sent")
-        return response['ok']
-    except:
+        return response.get('ok', False)
+    except Exception:
         return False
 
 def recursive_listdir(path):
